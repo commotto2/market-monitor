@@ -1,0 +1,98 @@
+name: Weekly/Biweekly/Monthly Market Report
+
+on:
+  schedule:
+    # 금요일 23:30 UTC = 토요일 08:30 KST (지연 감안 시 09:00~10:00 수신)
+    - cron: '30 23 * * 5'
+  workflow_dispatch:
+    inputs:
+      force_biweekly:
+        description: '격주 리포트 강제 실행 (true/false)'
+        required: false
+        default: 'false'
+      force_monthly:
+        description: '월간 리포트 강제 실행 (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  weekend-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance pandas matplotlib requests numpy
+
+      - name: Run Weekly Report
+        env:
+          TELEGRAM_TOKEN_MARKET:  ${{ secrets.TELEGRAM_TOKEN_MARKET }}
+          TELEGRAM_CHAT_WEEKLY:   ${{ secrets.TELEGRAM_CHAT_WEEKLY }}
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          FRED_API_KEY:           ${{ secrets.FRED_API_KEY }}
+          KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCESS_TOKEN:       ${{ secrets.KIS_ACCESS_TOKEN }}
+        run: python reports/weekly_report.py
+
+      - name: Check Biweekly Schedule
+        id: biweekly_check
+        run: |
+          python - <<'EOF'
+          import datetime, os
+          today = datetime.date.today()
+          # ISO 주차 기준 홀수 주 토요일 = 격주 실행
+          week_num = today.isocalendar()[1]
+          is_biweekly = (week_num % 2 == 1)
+          force = os.environ.get('INPUT_FORCE_BIWEEKLY', 'false').lower() == 'true'
+          result = 'true' if (is_biweekly or force) else 'false'
+          print(f"주차: {week_num}, 격주 실행: {result}")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"run_biweekly={result}\n")
+          EOF
+        env:
+          INPUT_FORCE_BIWEEKLY: ${{ github.event.inputs.force_biweekly }}
+
+      - name: Run Biweekly Report
+        if: steps.biweekly_check.outputs.run_biweekly == 'true'
+        env:
+          TELEGRAM_TOKEN_MARKET:    ${{ secrets.TELEGRAM_TOKEN_MARKET }}
+          TELEGRAM_CHAT_BIWEEKLY:   ${{ secrets.TELEGRAM_CHAT_BIWEEKLY }}
+          ANTHROPIC_API_KEY:        ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python reports/biweekly_report.py
+
+      - name: Check Monthly Schedule
+        id: monthly_check
+        run: |
+          python - <<'EOF'
+          import datetime, os
+          today = datetime.date.today()
+          # 매월 첫째 주 토요일 = 월간 실행 (1일~7일 사이 토요일)
+          is_monthly = (today.day <= 7)
+          force = os.environ.get('INPUT_FORCE_MONTHLY', 'false').lower() == 'true'
+          result = 'true' if (is_monthly or force) else 'false'
+          print(f"날짜: {today.day}일, 월간 실행: {result}")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"run_monthly={result}\n")
+          EOF
+        env:
+          INPUT_FORCE_MONTHLY: ${{ github.event.inputs.force_monthly }}
+
+      - name: Run Monthly Report
+        if: steps.monthly_check.outputs.run_monthly == 'true'
+        env:
+          TELEGRAM_TOKEN_MARKET:  ${{ secrets.TELEGRAM_TOKEN_MARKET }}
+          TELEGRAM_CHAT_MONTHLY:  ${{ secrets.TELEGRAM_CHAT_MONTHLY }}
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCESS_TOKEN:       ${{ secrets.KIS_ACCESS_TOKEN }}
+        run: python reports/monthly_report.py
