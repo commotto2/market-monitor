@@ -1,0 +1,34 @@
+name: Daily Market Report
+
+on:
+  schedule:
+    # 평일 07:30 UTC = 한국시간 16:30 KST (지연 감안 시 17:00~17:30 수신)
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch:  # 수동 실행 허용
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance pandas matplotlib requests
+
+      - name: Run Daily Report
+        env:
+          TELEGRAM_TOKEN_MARKET:  ${{ secrets.TELEGRAM_TOKEN_MARKET }}
+          TELEGRAM_CHAT_DAILY:    ${{ secrets.TELEGRAM_CHAT_DAILY }}
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCESS_TOKEN:       ${{ secrets.KIS_ACCESS_TOKEN }}
+        run: python reports/daily_report.py
