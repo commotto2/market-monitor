@@ -153,17 +153,17 @@ def get_ted_spread():
 # 4. 섹터 ETF 순위 (11개)
 # ─────────────────────────────────────────
 SECTOR_ETFS = {
-    'XLK':  '기술',
-    'XLV':  '헬스케어',
-    'XLF':  '금융',
-    'XLE':  '에너지',
-    'XLI':  '산업재',
-    'XLP':  '필수소비재',
-    'XLU':  '유틸리티',
-    'XLRE': '부동산',
-    'XLY':  '임의소비재',
-    'XLB':  '소재',
-    'XLC':  '통신'
+    'XLK':  'Technology',
+    'XLV':  'Health Care',
+    'XLF':  'Financials',
+    'XLE':  'Energy',
+    'XLI':  'Industrials',
+    'XLP':  'Staples',
+    'XLU':  'Utilities',
+    'XLRE': 'Real Estate',
+    'XLY':  'Discretionary',
+    'XLB':  'Materials',
+    'XLC':  'Comm Svcs'
 }
 
 DEFENSIVE_SECTORS = {'XLU', 'XLP', 'XLV'}
