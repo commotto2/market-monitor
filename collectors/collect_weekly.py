@@ -262,43 +262,10 @@ def get_ratio_indicators():
 # ─────────────────────────────────────────
 def get_credit_balance():
     """
-    금융투자협회 API에서 신용거래융자 잔고 수집
-    https://freesis.kofia.or.kr
+    신용잔고: 금투협 API 접근 불안정
+    → KIS API 설정 후 연결 예정, 현재는 N/A 처리
     """
-    try:
-        today = datetime.now()
-        start = (today - timedelta(days=30)).strftime('%Y%m%d')
-        end   = today.strftime('%Y%m%d')
-
-        url = "https://freesis.kofia.or.kr/stat/fnc/selectFncStatMktTrnsData.do"
-        headers = {
-            'User-Agent': 'Mozilla/5.0',
-            'Content-Type': 'application/json;charset=UTF-8',
-            'Referer': 'https://freesis.kofia.or.kr/'
-        }
-        body = {
-            "tboxisuCd_0": "",
-            "isuCd": "",
-            "strtDd": start,
-            "endDd": end,
-            "mktTpCd": "1",  # 1: 코스피
-            "inqTpCd": "1"
-        }
-
-        resp = requests.post(url, json=body, headers=headers, timeout=15)
-        data = resp.json()
-
-        if data and isinstance(data, list):
-            latest = data[-1]
-            balance_bil = float(latest.get('crdtRmndAmt', 0)) / 1e8  # 억 단위
-            return {
-                'credit_balance_bil': round(balance_bil, 0),
-                'credit_date': latest.get('baseDd', '')
-            }
-
-    except Exception as e:
-        print(f"[오류] 신용잔고: {e}")
-
+    print("  [건너뜀] 신용잔고: KIS API 설정 후 연결 예정")
     return {'credit_balance_bil': None, 'credit_date': None}
 
 
