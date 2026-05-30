@@ -22,20 +22,18 @@ import subprocess
 # ─────────────────────────────────────────
 def setup_korean_font():
     try:
+        # pip으로 한글 폰트 설치
         subprocess.run(
-            ["apt-get", "install", "-y", "-q", "fonts-nanum"],
-            capture_output=True, timeout=30
+            [sys.executable, "-m", "pip", "install", "koreanize-matplotlib", "-q"],
+            capture_output=True, timeout=60
         )
-        fm.fontManager.__init__()
-        nanum_fonts = [f for f in fm.findSystemFonts() if "Nanum" in f or "nanum" in f]
-        if nanum_fonts:
-            prop = fm.FontProperties(fname=nanum_fonts[0])
-            plt.rcParams["font.family"] = prop.get_name()
-            print(f"[폰트] {prop.get_name()} 적용")
-            return
-        print("[폰트] 나눔폰트 설치 실패 → 영문 레이블 사용")
-    except Exception as e:
-        print(f"[폰트] 설정 오류: {e}")
+        import koreanize_matplotlib  # noqa: F401
+        print("[폰트] koreanize-matplotlib 적용")
+    except Exception:
+        # fallback: matplotlib 기본 한글 경고 무시
+        import warnings
+        warnings.filterwarnings("ignore", message="Glyph.*missing")
+        print("[폰트] 한글 폰트 없음 → 경고 무시 처리")
 
 setup_korean_font()
 
