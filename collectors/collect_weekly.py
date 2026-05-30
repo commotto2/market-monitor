@@ -24,29 +24,50 @@ FRED_API_KEY = os.environ.get('FRED_API_KEY', '')
 
 
 # ─────────────────────────────────────────
+# 헬퍼: yfinance 단일 티커 종가 Series 반환
+# ─────────────────────────────────────────
+def _get_close_weekly(ticker, period):
+    data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+    if data.empty:
+        return pd.Series(dtype=float)
+    close = data['Close']
+    if isinstance(close, pd.DataFrame):
+        close = close.squeeze()
+    return close.dropna()
+
+
+# ─────────────────────────────────────────
 # 1. 장단기 금리차 (10년 - 2년)
 # ─────────────────────────────────────────
 def get_yield_curve():
     try:
         result = {}
         for name, ticker in [('T10Y', '^TNX'), ('T2Y', '^IRX')]:
-            data = yf.download(ticker, period='30d', progress=False, auto_adjust=True)
-            close = data['Close'].dropna()
+            close = _get_close_weekly(ticker, '30d')
+            if close.empty:
+                result[name] = None
+                result[f'{name}_4w_ago'] = None
+                continue
             result[name] = round(float(close.iloc[-1]), 3)
             result[f'{name}_4w_ago'] = round(float(close.iloc[-20]), 3) if len(close) >= 20 else None
 
-        spread = round(result['T10Y'] - result['T2Y'], 3)
-        spread_4w = round(result['T10Y_4w_ago'] - result['T2Y_4w_ago'], 3) \
-            if result.get('T10Y_4w_ago') and result.get('T2Y_4w_ago') else None
+        t10 = result.get('T10Y')
+        t2  = result.get('T2Y')
+        if t10 is None or t2 is None:
+            return {
+                'T10Y': t10, 'T2Y': t2, 'yield_spread': None,
+                'yield_spread_4w_ago': None, 'yield_inverted': False,
+                'yield_inversion_resolving': False
+            }
 
-        # 역전 해소 감지 (이전엔 음수, 지금은 양수)
-        inversion_resolving = False
-        if spread_4w and spread_4w < 0 and spread > 0:
-            inversion_resolving = True
+        spread    = round(t10 - t2, 3)
+        t10_4w    = result.get('T10Y_4w_ago')
+        t2_4w     = result.get('T2Y_4w_ago')
+        spread_4w = round(t10_4w - t2_4w, 3) if t10_4w and t2_4w else None
+        inversion_resolving = bool(spread_4w and spread_4w < 0 and spread > 0)
 
         return {
-            'T10Y': result['T10Y'],
-            'T2Y': result['T2Y'],
+            'T10Y': t10, 'T2Y': t2,
             'yield_spread': spread,
             'yield_spread_4w_ago': spread_4w,
             'yield_inverted': spread < 0,
