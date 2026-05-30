@@ -11,9 +11,33 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.font_manager as fm
 import numpy as np
 from datetime import datetime
 import io
+import subprocess
+
+# ─────────────────────────────────────────
+# 한글 폰트 설정 (GitHub Actions Ubuntu 환경)
+# ─────────────────────────────────────────
+def setup_korean_font():
+    try:
+        subprocess.run(
+            ["apt-get", "install", "-y", "-q", "fonts-nanum"],
+            capture_output=True, timeout=30
+        )
+        fm.fontManager.__init__()
+        nanum_fonts = [f for f in fm.findSystemFonts() if "Nanum" in f or "nanum" in f]
+        if nanum_fonts:
+            prop = fm.FontProperties(fname=nanum_fonts[0])
+            plt.rcParams["font.family"] = prop.get_name()
+            print(f"[폰트] {prop.get_name()} 적용")
+            return
+        print("[폰트] 나눔폰트 설치 실패 → 영문 레이블 사용")
+    except Exception as e:
+        print(f"[폰트] 설정 오류: {e}")
+
+setup_korean_font()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from collectors.collect_weekly import collect_all_weekly
