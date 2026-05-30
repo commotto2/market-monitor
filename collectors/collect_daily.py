@@ -1,8 +1,7 @@
 """
 collect_daily.py — v4
 수정사항:
-- KOSPI: ^KS11 이상값 보정 (1000 미만이면 100 곱해서 복원)
-- 환율: KRW=X 이상값 보정 (0.001 단위로 내려오면 역수 변환)
+- KOSPI: yfinance ^KS11 사용, KIS API 설정 후 정확한 값으로 대체 예정
 - Put/Call Ratio: CBOE 403 차단 → 제외 후 리포트에서 N/A 표시
 - Fear&Greed rating 소문자 비교 유지
 """
@@ -131,65 +130,27 @@ def get_fear_greed():
 # 6~9. 한국투자증권 API
 # ─────────────────────────────────────────
 def get_korea_investor_data(app_key, app_secret, access_token):
-    BASE_URL = "https://openapi.koreainvestment.com:9443"
+    """KIS API로 외국인/기관 수급 + 개별종목 조회"""
+    from collectors.kis_auth import (
+        get_foreign_inst_top5, get_stock_quote
+    )
+
     result = {
         'foreign_buy_top5': [], 'foreign_sell_top5': [],
         'inst_buy_top5':    [], 'inst_sell_top5':    [],
         'samsung_foreign':  None, 'hynix_foreign':   None
     }
-    try:
-        headers = {
-            "authorization": f"Bearer {access_token}",
-            "appkey": app_key, "appsecret": app_secret,
-            "tr_id": "FHPTJ04400000", "content-type": "application/json"
-        }
-        params = {
-            "fid_cond_mrkt_div_code": "J", "fid_cond_scr_div_code": "20171",
-            "fid_input_iscd": "0000", "fid_trgt_cls_code": "0",
-            "fid_trgt_exls_cls_code": "0", "fid_input_price_1": "",
-            "fid_input_price_2": "", "fid_vol_cnt": "", "fid_input_date_1": ""
-        }
-        resp = requests.get(
-            f"{BASE_URL}/uapi/domestic-stock/v1/ranking/foreign-net-buy",
-            headers=headers, params=params, timeout=10
-        )
-        data = resp.json()
-        if data.get('rt_cd') == '0':
-            for item in data.get('output', [])[:5]:
-                result['foreign_buy_top5'].append({
-                    'name': item.get('hts_kor_isnm', ''),
-                    'amount': item.get('frgn_ntby_qty', '0')
-                })
-    except Exception as e:
-        print(f"[오류] 외국인 순매수: {e}")
 
+    # 외국인 순매수 TOP5
+    top5 = get_foreign_inst_top5(app_key, app_secret, access_token, 'foreign')
+    result['foreign_buy_top5'] = top5
     time.sleep(0.3)
 
+    # 삼성전자 / SK하이닉스
     for code, key in [('005930', 'samsung_foreign'), ('000660', 'hynix_foreign')]:
-        try:
-            h = {
-                "authorization": f"Bearer {access_token}",
-                "appkey": app_key, "appsecret": app_secret,
-                "tr_id": "FHKST01010100", "content-type": "application/json"
-            }
-            resp = requests.get(
-                f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price",
-                headers=h,
-                params={"fid_cond_mrkt_div_code": "J", "fid_input_iscd": code},
-                timeout=10
-            )
-            out = resp.json()
-            if out.get('rt_cd') == '0':
-                o = out.get('output', {})
-                result[key] = {
-                    'price':           o.get('stck_prpr', 'N/A'),
-                    'foreign_rate':    o.get('hts_frgn_ehrt', 'N/A'),
-                    'foreign_net_buy': o.get('frgn_ntby_qty', 'N/A'),
-                    'change_rate':     o.get('prdy_ctrt', 'N/A')
-                }
-            time.sleep(0.3)
-        except Exception as e:
-            print(f"[오류] {code}: {e}")
+        result[key] = get_stock_quote(app_key, app_secret, access_token, code)
+        time.sleep(0.3)
+
     return result
 
 
@@ -197,22 +158,6 @@ def get_korea_investor_data(app_key, app_secret, access_token):
 # 10. 원/달러 환율 + KOSPI
 # yfinance 이상값 자동 보정
 # ─────────────────────────────────────────
-def _fix_kospi(val):
-    """
-    yfinance ^KS11 이상값 보정
-    정상 범위: 1,000 ~ 4,000
-    1,000 미만으로 나오면 × 100 보정 (포인트 단위 오류)
-    10,000 이상이면 ÷ 10 보정
-    """
-    if val is None:
-        return None
-    if val < 1000:
-        return round(val * 100, 2)
-    if val > 9000:
-        return round(val / 10, 2)
-    return round(val, 2)
-
-
 def get_krw_usd():
     try:
         krw_raw   = _get_close('KRW=X', '15d')
@@ -224,12 +169,11 @@ def get_krw_usd():
                 'KOSPI': None, 'KOSPI_1d_chg': None, 'KRW_KOSPI_divergence': False
             }
 
-        # KOSPI 이상값 보정 (환율은 보정 없이 그대로 사용)
         krw_series   = krw_raw
-        kospi_series = kospi_raw.apply(_fix_kospi) if not kospi_raw.empty else pd.Series(dtype=float)
+        kospi_series = kospi_raw if not kospi_raw.empty else pd.Series(dtype=float)
 
-        krw_cur  = float(krw_series.iloc[-1])
-        krw_prev = float(krw_series.iloc[-2]) if len(krw_series) >= 2 else None
+        krw_cur  = round(float(krw_series.iloc[-1]), 1)
+        krw_prev = round(float(krw_series.iloc[-2]), 1) if len(krw_series) >= 2 else None
         krw_1d   = round((krw_cur - krw_prev) / krw_prev * 100, 2) if krw_prev else None
         krw_5d_v = float(krw_series.iloc[-6]) if len(krw_series) >= 6 else None
         krw_5d   = round((krw_cur - krw_5d_v) / krw_5d_v * 100, 2) if krw_5d_v else None
@@ -282,15 +226,31 @@ def collect_all(app_key=None, app_secret=None, access_token=None):
     data.update(get_fear_greed())
     time.sleep(0.5)
 
-    print("  환율/KOSPI 수집 중...")
+    print("  환율 수집 중...")
     data.update(get_krw_usd())
     time.sleep(0.5)
 
     if app_key and app_secret and access_token:
-        print("  한국 수급 데이터 수집 중...")
+        # KIS API: 코스피 지수 + 수급 데이터
+        print("  [KIS] 코스피 지수 수집 중...")
+        from collectors.kis_auth import get_access_token, get_kospi_index
+        # Access Token이 없으면 자동 발급
+        if not access_token:
+            access_token = get_access_token(app_key, app_secret)
+        if access_token:
+            kospi_data = get_kospi_index(app_key, app_secret, access_token)
+            if kospi_data:
+                # KIS 코스피로 yfinance 값 덮어쓰기
+                data['KOSPI']       = kospi_data['KOSPI']
+                data['KOSPI_1d_chg'] = kospi_data['KOSPI_1d_chg']
+                data['KOSPI_source'] = 'KIS'
+                print(f"  [KIS] 코스피: {kospi_data['KOSPI']}")
+        time.sleep(0.3)
+
+        print("  [KIS] 한국 수급 데이터 수집 중...")
         data.update(get_korea_investor_data(app_key, app_secret, access_token))
     else:
-        print("  [건너뜀] 한국투자증권 API 미설정")
+        print("  [건너뜀] 한국투자증권 API 미설정 (KOSPI는 yfinance 값 사용)")
         data.update({
             'foreign_buy_top5': [], 'foreign_sell_top5': [],
             'inst_buy_top5':    [], 'inst_sell_top5':    [],
