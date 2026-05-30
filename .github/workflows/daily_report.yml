@@ -19,7 +19,37 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance pandas matplotlib requests numpy pykrx
+          pip install yfinance pandas matplotlib requests numpy
+
+      - name: Issue KIS Access Token
+        id: kis_token
+        env:
+          KIS_APP_KEY:    ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: |
+          python - <<'EOF'
+          import requests, os, sys
+
+          key    = os.environ.get('KIS_APP_KEY', '')
+          secret = os.environ.get('KIS_APP_SECRET', '')
+
+          if not key or not secret:
+              print("KIS API 미설정 → 건너뜀")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("token=\n")
+              sys.exit(0)
+
+          resp = requests.post(
+              "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
+              json={"grant_type": "client_credentials", "appkey": key, "appsecret": secret},
+              timeout=10
+          )
+          token = resp.json().get('access_token', '')
+          print(f"KIS Token 발급: {'성공' if token else '실패'}")
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"token={token}\n")
+          EOF
 
       - name: Run Daily Report
         env:
@@ -28,5 +58,5 @@ jobs:
           ANTHROPIC_API_KEY:     ${{ secrets.ANTHROPIC_API_KEY }}
           KIS_APP_KEY:           ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET:        ${{ secrets.KIS_APP_SECRET }}
-          KIS_ACCESS_TOKEN:      ${{ secrets.KIS_ACCESS_TOKEN }}
+          KIS_ACCESS_TOKEN:      ${{ steps.kis_token.outputs.token }}
         run: python reports/daily_report.py
