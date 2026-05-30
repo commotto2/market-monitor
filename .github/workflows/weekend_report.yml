@@ -30,7 +30,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yfinance pandas matplotlib requests numpy
+          pip install yfinance pandas matplotlib requests numpy koreanize-matplotlib
 
       - name: Run Weekly Report
         env:
