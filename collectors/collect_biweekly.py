@@ -13,6 +13,17 @@ from datetime import datetime
 import time
 import json
 
+def _get_close_bw(ticker, period):
+    """yfinance 단일 티커 종가 Series 반환 (멀티컬럼 대응)"""
+    data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+    if data.empty:
+        return pd.Series(dtype=float)
+    close = data['Close']
+    if isinstance(close, pd.DataFrame):
+        close = close.squeeze()
+    return close.dropna()
+
+
 # S&P500 구성종목 (대표 100개로 제한, 속도/안정성 균형)
 # 전체 500개 대신 시총 상위 100개 사용 → 대표성 충분, 실행 시간 단축
 SP500_TOP100 = [
@@ -40,8 +51,7 @@ def get_sp500_above_ma200():
 
     for i, ticker in enumerate(SP500_TOP100):
         try:
-            data = yf.download(ticker, period='1y', progress=False, auto_adjust=True)
-            close = data['Close'].dropna()
+            close = _get_close_bw(ticker, '1y')
             if len(close) < 200:
                 # 200일치 없으면 있는 것만으로 계산
                 ma = close.mean()
@@ -78,39 +88,31 @@ def get_sp500_above_ma200():
 # ─────────────────────────────────────────
 def get_mcclellan():
     """
-    NYSE 등락 종목 수 기반으로 계산
-    yfinance에서 $ADDN (NYSE Advancing), $DECN (NYSE Declining) 수집
+    McClellan Oscillator 근사치 계산
+    SPY 일별 수익률의 19일EMA - 39일EMA 사용
     """
     try:
-        # NYSE 등락 종목 수
-        adv_data = yf.download('^NYCH', period='60d', progress=False, auto_adjust=True)
+        spy_close = _get_close_bw('SPY', '60d')
+        if spy_close.empty:
+            return {'mcclellan': None, 'mcclellan_prev': None, 'mcclellan_zero_cross': None}
 
-        # 직접 계산 대신 ETF 방식으로 근사치 계산
-        # SPY 구성종목 상승/하락 비율로 대체
-        spy_data = yf.download('SPY', period='60d', progress=False, auto_adjust=True)
-        spy_close = spy_data['Close'].dropna()
-
-        # 일별 수익률로 A-D 라인 근사치 계산
         daily_ret = spy_close.pct_change().dropna()
-
-        # 단순화된 McClellan: SPY 일수익률의 19일EMA - 39일EMA
         ema19 = daily_ret.ewm(span=19, adjust=False).mean()
         ema39 = daily_ret.ewm(span=39, adjust=False).mean()
         mcclellan = ((ema19 - ema39) * 10000).dropna()
 
+        if mcclellan.empty:
+            return {'mcclellan': None, 'mcclellan_prev': None, 'mcclellan_zero_cross': None}
+
         current = round(float(mcclellan.iloc[-1]), 2)
         prev    = round(float(mcclellan.iloc[-2]), 2) if len(mcclellan) >= 2 else None
 
-        # 0선 교차 감지
+        zero_cross = None
         if prev is not None:
             if prev < 0 and current > 0:
                 zero_cross = "상향 돌파 (하락→상승 전환 신호)"
             elif prev > 0 and current < 0:
                 zero_cross = "하향 돌파 (상승→하락 전환 신호)"
-            else:
-                zero_cross = None
-        else:
-            zero_cross = None
 
         return {
             'mcclellan': current,
