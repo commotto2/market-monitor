@@ -13,6 +13,17 @@ import json
 import time
 
 
+def _get_close_m(ticker, period):
+    """yfinance 단일 티커 종가 Series 반환 (멀티컬럼 대응)"""
+    data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+    if data.empty:
+        return pd.Series(dtype=float)
+    close = data['Close']
+    if isinstance(close, pd.DataFrame):
+        close = close.squeeze()
+    return close.dropna()
+
+
 # ─────────────────────────────────────────
 # 1. 삼성전자/SK하이닉스 외국인 지분율 월간 추이
 # ─────────────────────────────────────────
@@ -67,10 +78,9 @@ def get_stock_foreign_monthly(app_key=None, app_secret=None, access_token=None):
         for key, info in stocks.items():
             ticker_map = {'samsung': '005930.KS', 'hynix': '000660.KS'}
             try:
-                data = yf.download(ticker_map[key], period='1mo', progress=False, auto_adjust=True)
-                close = data['Close'].dropna()
+                close = _get_close_m(ticker_map[key], '1mo')
                 if not close.empty:
-                    ret_1m = round((close.iloc[-1] / close.iloc[0] - 1) * 100, 2)
+                    ret_1m = round((float(close.iloc[-1]) / float(close.iloc[0]) - 1) * 100, 2)
                     result[key] = {
                         'name': info['name'],
                         'price': round(float(close.iloc[-1])),
@@ -89,17 +99,14 @@ def get_stock_foreign_monthly(app_key=None, app_secret=None, access_token=None):
 # ─────────────────────────────────────────
 def get_relative_performance():
     try:
-        end   = datetime.now()
-        start = end - timedelta(days=400)  # 충분한 기간
+        kospi_close = _get_close_m('^KS11',  '14mo')
+        sp500_close = _get_close_m('^GSPC', '14mo')
 
-        result = {}
-        for name, ticker in [('KOSPI', '^KS11'), ('SP500', '^GSPC')]:
-            data = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-            close = data['Close'].dropna()
-            result[name] = close
+        if kospi_close.empty or sp500_close.empty:
+            raise ValueError("데이터 없음")
 
         # 공통 날짜만 사용
-        df = pd.DataFrame({'KOSPI': result['KOSPI'], 'SP500': result['SP500']}).dropna()
+        df = pd.DataFrame({'KOSPI': kospi_close, 'SP500': sp500_close}).dropna()
 
         def calc_ret(series, days):
             if len(series) >= days:
@@ -140,8 +147,9 @@ def get_relative_performance():
 # ─────────────────────────────────────────
 def get_krw_monthly_volatility():
     try:
-        data = yf.download('KRW=X', period='3mo', progress=False, auto_adjust=True)
-        close = data['Close'].dropna()
+        close = _get_close_m('KRW=X', '3mo')
+        if close.empty:
+            return {'krw_current': None}
 
         # 월간 통계
         monthly = close.resample('ME').agg(['first', 'last', 'min', 'max', 'std'])
