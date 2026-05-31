@@ -108,27 +108,34 @@ def get_move_index():
         pass
 
     # 2차 시도: FRED API
+    # MOVE 인덱스는 FRED에 직접 없음 → ICE BofA MOVE 대용 지수 사용
+    # ICEMOVEDX = ICE BofA MOVE Index (가장 근접한 공식 시리즈)
     if FRED_API_KEY:
-        try:
-            url = f"https://api.stlouisfed.org/fred/series/observations"
-            params = {
-                'series_id': 'BAMLMOVE',
-                'api_key': FRED_API_KEY,
-                'file_type': 'json',
-                'sort_order': 'desc',
-                'limit': 5
-            }
-            resp = requests.get(url, params=params, timeout=10)
-            obs = resp.json()['observations']
-            vals = [float(o['value']) for o in obs if o['value'] != '.']
-            if vals:
-                return {
-                    'MOVE': round(vals[0], 2),
-                    'MOVE_prev': round(vals[1], 2) if len(vals) >= 2 else None,
-                    'MOVE_chg': round(vals[0] - vals[1], 2) if len(vals) >= 2 else None
+        for series_id in ['ICEMOVEDX', 'MOVE']:
+            try:
+                url = "https://api.stlouisfed.org/fred/series/observations"
+                params = {
+                    'series_id': series_id,
+                    'api_key': FRED_API_KEY,
+                    'file_type': 'json',
+                    'sort_order': 'desc',
+                    'limit': 5
                 }
-        except Exception as e:
-            print(f"[오류] MOVE FRED: {e}")
+                resp = requests.get(url, params=params, timeout=10)
+                data = resp.json()
+                obs = data.get('observations', [])
+                if not obs:
+                    continue
+                vals = [float(o['value']) for o in obs if o.get('value', '.') != '.']
+                if vals:
+                    return {
+                        'MOVE': round(vals[0], 2),
+                        'MOVE_prev': round(vals[1], 2) if len(vals) >= 2 else None,
+                        'MOVE_chg': round(vals[0] - vals[1], 2) if len(vals) >= 2 else None
+                    }
+            except Exception as e:
+                print(f"[오류] MOVE FRED ({series_id}): {e}")
+                continue
 
     return {'MOVE': None, 'MOVE_prev': None, 'MOVE_chg': None}
 
