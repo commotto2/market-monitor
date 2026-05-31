@@ -91,7 +91,11 @@ def get_claude_interpretation_monthly(d, signals):
             },
             timeout=30
         )
-        return resp.json()['content'][0]['text'].strip()
+        result = resp.json()
+        if 'content' not in result:
+            print(f"[오류] Claude API 응답 구조 이상: {result}")
+            return None
+        return result['content'][0]['text'].strip()
     except Exception as e:
         print(f"[오류] Claude API (monthly): {e}")
         return None
