@@ -49,27 +49,32 @@ def get_claude_interpretation_monthly(d, signals):
     sam = stocks.get('samsung', {}) or {}
     hyn = stocks.get('hynix', {}) or {}
 
-    prompt = f"""시장 분석 전문가로서 이번 달 한국 시장 구조적 흐름을 평가해주세요.
+    sam_price    = sam.get('price', 'N/A')
+    sam_frate    = sam.get('foreign_rate', 'N/A')
+    hyn_price    = hyn.get('price', 'N/A')
+    hyn_frate    = hyn.get('foreign_rate', 'N/A')
+    sp500_1m     = d.get('sp500_ret_1m', 'N/A')
+    sp500_3m     = d.get('sp500_ret_3m', 'N/A')
+    sp500_1y     = d.get('sp500_ret_1y', 'N/A')
+    krw_cur      = d.get('krw_current', 'N/A')
+    krw_lo       = d.get('krw_last_month_low', 'N/A')
+    krw_hi       = d.get('krw_last_month_high', 'N/A')
 
-[수치]
-삼성전자: {sam.get('price', 'N/A')}원  외국인 보유율 {sam.get('foreign_rate', 'N/A')}%
-SK하이닉스: {hyn.get('price', 'N/A')}원  외국인 보유율 {hyn.get('foreign_rate', 'N/A')}%
-
-KOSPI 수익률:  1개월 {d.get('kospi_ret_1m')}%  3개월 {d.get('kospi_ret_3m')}%  1년 {d.get('kospi_ret_1y')}%
-S&P500 수익률: 1개월 {d.get('sp500_ret_1m')}%  3개월 {d.get('sp500_ret_3m')}%  1년 {d.get('sp500_ret_1y')}%
-상대 수익률:   1개월 {d.get('rel_ret_1m')}%  3개월 {d.get('rel_ret_3m')}%  1년 {d.get('rel_ret_1y')}%
-
-환율: {d.get('krw_current')}원  (지난달 레인지: {d.get('krw_last_month_low')}~{d.get('krw_last_month_high')}원)
-
-[감지된 신호]
-{signal_text}
-
-[요청]
-1. 이번 달 한국 시장의 구조적 특징을 3문장으로 요약해주세요.
-2. 삼성전자/SK하이닉스 외국인 수급 흐름을 1문장으로 평가해주세요.
-3. KOSPI vs S&P500 상대 성과를 1문장으로 해석해주세요.
-4. "종합 판단: ..." 한 줄로 마무리해주세요.
-5. 전체 10줄 이내, 한국어로 작성해주세요."""
+    prompt = (
+        "시장 분석 전문가로서 이번 달 한국 시장 구조적 흐름을 평가해주세요.\n\n"
+        "[수치]\n"
+        f"삼성전자: {sam_price}원  외국인 보유율 {sam_frate}\n"
+        f"SK하이닉스: {hyn_price}원  외국인 보유율 {hyn_frate}\n\n"
+        f"S&P500 수익률: 1개월 {sp500_1m}  3개월 {sp500_3m}  1년 {sp500_1y}\n"
+        f"환율: {krw_cur}원  (지난달 레인지: {krw_lo}~{krw_hi}원)\n\n"
+        f"[감지된 신호]\n{signal_text}\n\n"
+        "[요청]\n"
+        "1. 이번 달 한국 시장의 구조적 특징을 2문장으로 요약해주세요.\n"
+        "2. 삼성전자/SK하이닉스 주가 흐름을 1문장으로 평가해주세요.\n"
+        "3. 환율 동향을 1문장으로 해석해주세요.\n"
+        "4. \"종합 판단: ...\" 한 줄로 마무리해주세요.\n"
+        "5. 전체 8줄 이내, 한국어로 작성해주세요."
+    )
 
     try:
         resp = requests.post(
