@@ -99,14 +99,15 @@ def get_stock_foreign_monthly(app_key=None, app_secret=None, access_token=None):
 # ─────────────────────────────────────────
 def get_relative_performance():
     try:
-        kospi_close = _get_close_m('^KS11',  '14mo')
+        # KOSPI: yfinance ^KS11 이상값 → KIS API 연결 전까지 S&P500만 수집
         sp500_close = _get_close_m('^GSPC', '14mo')
 
-        if kospi_close.empty or sp500_close.empty:
+        if sp500_close.empty:
             raise ValueError("데이터 없음")
 
-        # 공통 날짜만 사용
-        df = pd.DataFrame({'KOSPI': kospi_close, 'SP500': sp500_close}).dropna()
+        # KOSPI는 N/A, S&P500만 계산
+        df = pd.DataFrame({'SP500': sp500_close}).dropna()
+        df['KOSPI'] = float('nan')
 
         def calc_ret(series, days):
             if len(series) >= days:
