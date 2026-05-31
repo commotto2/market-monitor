@@ -111,7 +111,8 @@ def get_move_index():
     # MOVE 인덱스는 FRED에 직접 없음 → ICE BofA MOVE 대용 지수 사용
     # ICEMOVEDX = ICE BofA MOVE Index (가장 근접한 공식 시리즈)
     if FRED_API_KEY:
-        for series_id in ['ICEMOVEDX', 'MOVE']:
+        # VXTYN: CBOE 10년물 국채 변동성 지수 (MOVE와 같은 개념, FRED 공식 시리즈)
+        for series_id in ['VXTYN', 'ICEMOVEDX']:
             try:
                 url = "https://api.stlouisfed.org/fred/series/observations"
                 params = {
