@@ -134,9 +134,12 @@ def build_message_monthly(d, signals, interpretation):
         k = d.get(k_key)
         s = d.get(s_key)
         r = d.get(r_key)
-        k_str = f"{k:+.1f}%" if k is not None else "N/A"
-        s_str = f"{s:+.1f}%" if s is not None else "N/A"
-        r_str = f"{r:+.1f}%" if r is not None else "N/A"
+        def _fmt(v): 
+            import math
+            return f"{v:+.1f}%" if (v is not None and not math.isnan(v)) else "N/A"
+        k_str = _fmt(k)
+        s_str = _fmt(s)
+        r_str = _fmt(r)
         lines.append(f"  {period:6}  {k_str:>8}  {s_str:>8}  {r_str:>8}")
 
     # 환율 월간 변동
