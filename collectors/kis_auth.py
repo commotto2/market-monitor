@@ -96,51 +96,98 @@ def get_kospi_index(app_key, app_secret, access_token):
 
 def get_market_investor_trend(app_key, app_secret, access_token):
     """
-    국내 시장별 투자자 동향 (앱의 '국내 시장별 동향' 화면)
-    코스피 외국인/기관/개인 당일 순매수 금액 반환
+    국내 시장별 투자자 동향
+    장 마감 후에도 당일 데이터 조회 가능한 TR코드 순서로 시도
     """
-    url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor"
-    headers = {
-        "authorization": f"Bearer {access_token}",
-        "appkey": app_key,
-        "appsecret": app_secret,
-        "tr_id": "FHKST01010900",
-        "content-type": "application/json"
-    }
-    params = {
-        "fid_cond_mrkt_div_code": "J",
-        "fid_input_iscd":         "0001"   # 코스피 전체
-    }
-    try:
-        resp = requests.get(url, headers=headers, params=params, timeout=10)
-        if not resp.text.strip():
-            print("[KIS] 투자자동향: 빈 응답")
-            return None
-        data = resp.json()
-        print(f"[KIS] 투자자동향 응답: {str(data)[:300]}")
-        if data.get('rt_cd') == '0':
-            output = data.get('output', [])
-            # 빈 리스트면 장 마감 후 데이터 없음
+    from datetime import datetime
+    today = datetime.now().strftime('%Y%m%d')
+
+    # TR코드 후보: 날짜 지정 가능한 것 우선
+    candidates = [
+        {
+            # 투자자별 일별 매매동향 (날짜 지정)
+            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-trade-volume",
+            "tr_id": "FHKST03030100",
+            "params": {
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd":         "0001",
+                "fid_input_date_1":       today,
+                "fid_input_date_2":       today,
+                "fid_period_div_code":    "D"
+            }
+        },
+        {
+            # 시장 투자자 매매현황 (장중/마감 후)
+            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
+            "tr_id": "FHPTJ04400000",
+            "params": {
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd":         "0001",
+                "fid_input_date_1":       today
+            }
+        },
+        {
+            # 기존 TR코드 (장중만 작동)
+            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
+            "tr_id": "FHKST01010900",
+            "params": {
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd":         "0001"
+            }
+        }
+    ]
+
+    for c in candidates:
+        print(f"[KIS] 투자자동향 시도: {c['tr_id']}")
+        try:
+            headers = {
+                "authorization": f"Bearer {access_token}",
+                "appkey": app_key,
+                "appsecret": app_secret,
+                "tr_id": c["tr_id"],
+                "content-type": "application/json"
+            }
+            resp = requests.get(c["url"], headers=headers, params=c["params"], timeout=10)
+            if not resp.text.strip():
+                print(f"[KIS] {c['tr_id']}: 빈 응답")
+                continue
+            data = resp.json()
+            print(f"[KIS] {c['tr_id']} 응답: rt_cd={data.get('rt_cd')} / {str(data)[:200]}")
+
+            if data.get('rt_cd') != '0':
+                continue
+
+            output = data.get('output', data.get('output1', []))
             if isinstance(output, list):
                 if not output:
-                    print("[KIS] 투자자동향: 빈 리스트 (장 마감 후 정상)")
-                    return None
+                    print(f"[KIS] {c['tr_id']}: output 빈 리스트 → 다음 TR 시도")
+                    continue
                 o = output[0]
             elif isinstance(output, dict):
                 o = output
             else:
-                return None
-            return {
-                'foreign_net': o.get('frgn_ntby_tr_pbmn', 'N/A'),
-                'inst_net':    o.get('orgn_ntby_tr_pbmn', 'N/A'),
-                'indiv_net':   o.get('indv_ntby_tr_pbmn', 'N/A')
-            }
-        else:
-            print(f"[KIS] 투자자동향 실패: {data.get('msg1', '')} / rt_cd={data.get('rt_cd')}")
-            return None
-    except Exception as e:
-        print(f"[KIS] 투자자동향 오류: {e}")
-        return None
+                continue
+
+            # 외국인 순매수 필드 탐색
+            foreign = None
+            for key in ['frgn_ntby_tr_pbmn', 'frgn_ntby_qty', 'frgn_seln_tr_pbmn']:
+                if o.get(key):
+                    foreign = o[key]
+                    break
+
+            if foreign is not None:
+                print(f"[KIS] 투자자동향 수집 성공 (TR: {c['tr_id']})")
+                return {
+                    'foreign_net': o.get('frgn_ntby_tr_pbmn', o.get('frgn_ntby_qty', 'N/A')),
+                    'inst_net':    o.get('orgn_ntby_tr_pbmn', o.get('orgn_ntby_qty', 'N/A')),
+                    'indiv_net':   o.get('indv_ntby_tr_pbmn', o.get('indv_ntby_qty', 'N/A'))
+                }
+        except Exception as e:
+            print(f"[KIS] {c['tr_id']} 오류: {e}")
+            continue
+
+    print("[KIS] 투자자동향: 모든 TR코드 실패")
+    return None
 
 
 def get_foreign_inst_top5(app_key, app_secret, access_token, investor='foreign'):
