@@ -247,6 +247,11 @@ def collect_all(app_key=None, app_secret=None, access_token=None):
                 print(f"  [KIS] 코스피: {kospi_data['KOSPI']}")
         time.sleep(0.3)
 
+        print("  [KIS] 시장 투자자 동향 수집 중...")
+        from collectors.kis_auth import get_market_investor_trend
+        trend = get_market_investor_trend(app_key, app_secret, access_token)
+        data['market_investor_trend'] = trend
+
         print("  [KIS] 한국 수급 데이터 수집 중...")
         data.update(get_korea_investor_data(app_key, app_secret, access_token))
     else:
