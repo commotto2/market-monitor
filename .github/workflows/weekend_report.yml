@@ -32,21 +32,20 @@ jobs:
         run: |
           pip install yfinance pandas matplotlib requests numpy koreanize-matplotlib
 
-      - name: Issue KIS Access Token (Weekend)
+      - name: Issue KIS Access Token
         id: kis_token_weekend
         env:
           KIS_APP_KEY:    ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import requests, os, sys
           key    = os.environ.get('KIS_APP_KEY', '')
           secret = os.environ.get('KIS_APP_SECRET', '')
           if not key or not secret:
               print("KIS API 미설정")
               with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write("token=
-")
+                  f.write("token=\n")
               sys.exit(0)
           resp = requests.post(
               "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
@@ -56,9 +55,8 @@ jobs:
           token = resp.json().get('access_token', '')
           print(f"KIS Token: {'성공' if token else '실패'}")
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"token={token}
-")
-          EOF
+              f.write(f"token={token}\n")
+          PYEOF
 
       - name: Run Weekly Report
         env:
@@ -74,10 +72,9 @@ jobs:
       - name: Check Biweekly Schedule
         id: biweekly_check
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import datetime, os
           today = datetime.date.today()
-          # ISO 주차 기준 홀수 주 토요일 = 격주 실행
           week_num = today.isocalendar()[1]
           is_biweekly = (week_num % 2 == 1)
           force = os.environ.get('INPUT_FORCE_BIWEEKLY', 'false').lower() == 'true'
@@ -85,7 +82,7 @@ jobs:
           print(f"주차: {week_num}, 격주 실행: {result}")
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"run_biweekly={result}\n")
-          EOF
+          PYEOF
         env:
           INPUT_FORCE_BIWEEKLY: ${{ github.event.inputs.force_biweekly }}
 
@@ -100,17 +97,16 @@ jobs:
       - name: Check Monthly Schedule
         id: monthly_check
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import datetime, os
           today = datetime.date.today()
-          # 매월 첫째 주 토요일 = 월간 실행 (1일~7일 사이 토요일)
           is_monthly = (today.day <= 7)
           force = os.environ.get('INPUT_FORCE_MONTHLY', 'false').lower() == 'true'
           result = 'true' if (is_monthly or force) else 'false'
           print(f"날짜: {today.day}일, 월간 실행: {result}")
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"run_monthly={result}\n")
-          EOF
+          PYEOF
         env:
           INPUT_FORCE_MONTHLY: ${{ github.event.inputs.force_monthly }}
 
@@ -122,5 +118,5 @@ jobs:
           ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
           KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
-          KIS_ACCESS_TOKEN:       ${{ secrets.KIS_ACCESS_TOKEN }}
+          KIS_ACCESS_TOKEN:       ${{ steps.kis_token_weekend.outputs.token }}
         run: python reports/monthly_report.py
