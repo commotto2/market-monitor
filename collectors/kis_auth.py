@@ -107,26 +107,15 @@ def get_market_investor_trend(app_key, app_secret, access_token):
         {
             # 시장별 투자자매매동향(일별) [국내주식-075]
             # 장 마감 후에도 당일 데이터 조회 가능
-            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-daily",
+            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market",
             "tr_id": "FHPTJ04040000",
             "params": {
-                "fid_cond_mrkt_div_code": "J",
-                "fid_input_iscd":         "0001",
-                "fid_input_date_1":       today,
-                "fid_input_date_2":       today,
-                "fid_period_div_code":    "D"
-            }
-        },
-        {
-            # 국내기관_외국인 매매종목가집계 [국내주식-037]
-            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
-            "tr_id": "FHPTJ04400000",
-            "params": {
-                "fid_cond_mrkt_div_code": "J",
-                "fid_cond_scr_div_code":  "20171",
-                "fid_div_cls_code":       "0",
-                "fid_input_iscd":         "0001",
-                "fid_input_date_1":       today
+                "FID_COND_MRKT_DIV_CODE": "U",
+                "FID_INPUT_ISCD":         "0001",
+                "FID_INPUT_DATE_1":       today,
+                "FID_INPUT_ISCD_1":       "KSP",   # 코스피
+                "FID_INPUT_DATE_2":       today,
+                "FID_INPUT_ISCD_2":       "0001"
             }
         },
         {
@@ -172,18 +161,13 @@ def get_market_investor_trend(app_key, app_secret, access_token):
                 continue
 
             # 외국인 순매수 필드 탐색
-            foreign = None
-            for key in ['frgn_ntby_tr_pbmn', 'frgn_ntby_qty', 'frgn_seln_tr_pbmn']:
-                if o.get(key):
-                    foreign = o[key]
-                    break
-
+            foreign = o.get('frgn_ntby_tr_pbmn')  # 외국인 순매수 거래대금
             if foreign is not None:
                 print(f"[KIS] 투자자동향 수집 성공 (TR: {c['tr_id']})")
                 return {
-                    'foreign_net': o.get('frgn_ntby_tr_pbmn', o.get('frgn_ntby_qty', 'N/A')),
-                    'inst_net':    o.get('orgn_ntby_tr_pbmn', o.get('orgn_ntby_qty', 'N/A')),
-                    'indiv_net':   o.get('indv_ntby_tr_pbmn', o.get('indv_ntby_qty', 'N/A'))
+                    'foreign_net': o.get('frgn_ntby_tr_pbmn', 'N/A'),  # 외국인 순매수 거래대금
+                    'inst_net':    o.get('orgn_ntby_tr_pbmn', 'N/A'),  # 기관계 순매수 거래대금
+                    'indiv_net':   o.get('prsn_ntby_tr_pbmn', 'N/A')   # 개인 순매수 거래대금
                 }
         except Exception as e:
             print(f"[KIS] {c['tr_id']} 오류: {e}")
