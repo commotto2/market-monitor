@@ -94,49 +94,52 @@ def get_kospi_index(app_key, app_secret, access_token):
         return None
 
 
-def get_foreign_inst_top5(app_key, app_secret, access_token, investor='foreign'):
+def get_market_investor_trend(app_key, app_secret, access_token):
     """
-    외국인 순매수 상위 5종목
-    TR: FHKST01710000
+    국내 시장별 투자자 동향 (앱의 '국내 시장별 동향' 화면)
+    코스피 외국인/기관/개인 당일 순매수 금액 반환
     """
-    url = f"{BASE_URL}/uapi/domestic-stock/v1/ranking/foreign-net-buy"
+    url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor"
     headers = {
         "authorization": f"Bearer {access_token}",
         "appkey": app_key,
         "appsecret": app_secret,
-        "tr_id": "FHKST01710000",
+        "tr_id": "FHKST01010900",
         "content-type": "application/json"
     }
     params = {
         "fid_cond_mrkt_div_code": "J",
-        "fid_cond_scr_div_code":  "20171",
-        "fid_input_iscd":         "0000",
-        "fid_trgt_cls_code":      "0",
-        "fid_trgt_exls_cls_code": "0",
-        "fid_input_price_1":      "",
-        "fid_input_price_2":      "",
-        "fid_vol_cnt":            "",
-        "fid_input_date_1":       ""
+        "fid_input_iscd":         "0001"   # 코스피 전체
     }
     try:
         resp = requests.get(url, headers=headers, params=params, timeout=10)
+        if not resp.text.strip():
+            print("[KIS] 투자자동향: 빈 응답")
+            return None
         data = resp.json()
+        print(f"[KIS] 투자자동향 응답: {str(data)[:300]}")
         if data.get('rt_cd') == '0':
-            result = []
-            for item in data.get('output', [])[:5]:
-                result.append({
-                    'name':   item.get('hts_kor_isnm', ''),
-                    'code':   item.get('mksc_shrn_iscd', ''),
-                    'amount': item.get('frgn_ntby_qty', '0'),
-                    'amount_val': item.get('frgn_ntby_tr_pbmn', '0')  # 순매수 금액(백만)
-                })
-            return result
+            output = data.get('output', [])
+            o = output[0] if isinstance(output, list) and output else output
+            return {
+                'foreign_net': o.get('frgn_ntby_tr_pbmn', 'N/A'),
+                'inst_net':    o.get('orgn_ntby_tr_pbmn', 'N/A'),
+                'indiv_net':   o.get('indv_ntby_tr_pbmn', 'N/A')
+            }
         else:
-            print(f"[KIS] 수급 조회 실패: {data.get('msg1', '')}")
-            return []
+            print(f"[KIS] 투자자동향 실패: {data.get('msg1', '')} / rt_cd={data.get('rt_cd')}")
+            return None
     except Exception as e:
-        print(f"[KIS] 수급 조회 오류: {e}")
-        return []
+        print(f"[KIS] 투자자동향 오류: {e}")
+        return None
+
+
+def get_foreign_inst_top5(app_key, app_secret, access_token, investor='foreign'):
+    """
+    외국인 순매수 상위 5종목 (TR 오류로 임시 비활성화)
+    시장 전체 동향은 get_market_investor_trend() 사용
+    """
+    return []
 
 
 def get_stock_quote(app_key, app_secret, access_token, stock_code):
