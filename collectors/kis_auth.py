@@ -102,14 +102,15 @@ def get_market_investor_trend(app_key, app_secret, access_token):
     from datetime import datetime
     today = datetime.now().strftime('%Y%m%d')
 
-    # TR코드 후보: 날짜 지정 가능한 것 우선
+    # TR코드 후보
     candidates = [
         {
-            # FHKST03030100: fid_cond_mrkt_div_code → "U" 로 변경
-            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-trade-volume",
-            "tr_id": "FHKST03030100",
+            # 시장별 투자자매매동향(일별) [국내주식-075]
+            # 장 마감 후에도 당일 데이터 조회 가능
+            "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-daily",
+            "tr_id": "FHPTJ04040000",
             "params": {
-                "fid_cond_mrkt_div_code": "U",
+                "fid_cond_mrkt_div_code": "J",
                 "fid_input_iscd":         "0001",
                 "fid_input_date_1":       today,
                 "fid_input_date_2":       today,
@@ -117,18 +118,19 @@ def get_market_investor_trend(app_key, app_secret, access_token):
             }
         },
         {
-            # FHPTJ04400000: fid_cond_scr_div_code 추가
+            # 국내기관_외국인 매매종목가집계 [국내주식-037]
             "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
             "tr_id": "FHPTJ04400000",
             "params": {
                 "fid_cond_mrkt_div_code": "J",
                 "fid_cond_scr_div_code":  "20171",
+                "fid_div_cls_code":       "0",
                 "fid_input_iscd":         "0001",
                 "fid_input_date_1":       today
             }
         },
         {
-            # FHKST01010900: 장중만 작동, 마지막 시도
+            # 기존 TR코드 (장중만 작동, 마지막 시도)
             "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
             "tr_id": "FHKST01010900",
             "params": {
