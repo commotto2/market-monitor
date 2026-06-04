@@ -182,12 +182,19 @@ def build_message(d, signals, interpretation):
     # 삼성전자
     sam = d.get('samsung_foreign')
     if sam:
-        lines.append(f"  삼성전자  {sam['price']:,}원  외국인 {sam['foreign_net_buy']}주  보유율 {sam['foreign_rate']}%")
+        try:
+            sam_price = f"{int(str(sam['price']).replace(',', '')):,}"
+        except Exception:
+            sam_price = sam['price']
+        lines.append(f"  삼성전자  {sam_price}원  외국인 {sam['foreign_net_buy']}주  보유율 {sam['foreign_rate']}%")
 
-    # SK하이닉스
     hyn = d.get('hynix_foreign')
     if hyn:
-        lines.append(f"  SK하이닉스  {hyn['price']:,}원  외국인 {hyn['foreign_net_buy']}주  보유율 {hyn['foreign_rate']}%")
+        try:
+            hyn_price = f"{int(str(hyn['price']).replace(',', '')):,}"
+        except Exception:
+            hyn_price = hyn['price']
+        lines.append(f"  SK하이닉스  {hyn_price}원  외국인 {hyn['foreign_net_buy']}주  보유율 {hyn['foreign_rate']}%")
 
     # 외국인 TOP5
     if d.get('foreign_buy_top5'):
