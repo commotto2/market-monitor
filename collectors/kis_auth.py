@@ -120,7 +120,16 @@ def get_market_investor_trend(app_key, app_secret, access_token):
         print(f"[KIS] 투자자동향 응답: {str(data)[:300]}")
         if data.get('rt_cd') == '0':
             output = data.get('output', [])
-            o = output[0] if isinstance(output, list) and output else output
+            # 빈 리스트면 장 마감 후 데이터 없음
+            if isinstance(output, list):
+                if not output:
+                    print("[KIS] 투자자동향: 빈 리스트 (장 마감 후 정상)")
+                    return None
+                o = output[0]
+            elif isinstance(output, dict):
+                o = output
+            else:
+                return None
             return {
                 'foreign_net': o.get('frgn_ntby_tr_pbmn', 'N/A'),
                 'inst_net':    o.get('orgn_ntby_tr_pbmn', 'N/A'),
