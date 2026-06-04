@@ -246,10 +246,21 @@ def build_message_weekly(d, signals, interpretation):
             ma_str = "▲MA20위" if rd['above_ma20'] else "▼MA20아래"
             lines.append(f"  {label}  {rd['ratio']}  {ma_str}  주간 {rd['chg_1w']:+.2f}%" if rd['chg_1w'] is not None else f"  {label}  {rd['ratio']}  {ma_str}")
 
-    # 신용잔고
-    if d.get('credit_balance_bil'):
-        lines.append("【코스피 신용잔고】")
-        lines.append(f"  {d['credit_balance_bil']:,.0f}억  ({d.get('credit_date', '')})")
+    # 신용잔고 (삼성전자 + SK하이닉스)
+    sam_cr = d.get('credit_samsung')
+    hyn_cr = d.get('credit_hynix')
+    if sam_cr or hyn_cr:
+        lines.append("【신용잔고】")
+        for label, cr in [('삼성전자', sam_cr), ('SK하이닉스', hyn_cr)]:
+            if cr:
+                try:
+                    amt = int(str(cr['loan_rmnd_amt']).replace(',','')) // 100  # 백만→억
+                    rate = cr['loan_rmnd_rate']
+                    lines.append(f"  {label}  잔고 {amt:,}억  잔고율 {rate}%")
+                except Exception:
+                    lines.append(f"  {label}  데이터 오류")
+            else:
+                lines.append(f"  {label}  N/A")
 
     lines.append("─" * 30)
 
