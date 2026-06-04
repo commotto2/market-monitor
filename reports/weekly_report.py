@@ -254,7 +254,7 @@ def build_message_weekly(d, signals, interpretation):
         for label, cr in [('삼성전자', sam_cr), ('SK하이닉스', hyn_cr)]:
             if cr:
                 try:
-                    amt = int(str(cr['loan_rmnd_amt']).replace(',','')) // 100  # 백만→억
+                    amt = int(str(cr['loan_rmnd_amt']).replace(',','')) // 100000  # 천원→억
                     rate = cr['loan_rmnd_rate']
                     lines.append(f"  {label}  잔고 {amt:,}억  잔고율 {rate}%")
                 except Exception:
