@@ -51,7 +51,7 @@ def get_kospi_index(app_key, app_secret, access_token):
         "authorization": f"Bearer {access_token}",
         "appkey": app_key,
         "appsecret": app_secret,
-        "tr_id": "FHPUP02100000",  # 업종 현재가
+        "tr_id": "FHKUP03500100",  # 국내업종 현재가
         "content-type": "application/json"
     }
     params = {
@@ -61,19 +61,34 @@ def get_kospi_index(app_key, app_secret, access_token):
     try:
         resp = requests.get(url, headers=headers, params=params, timeout=10)
         data = resp.json()
+        print(f"[KIS] 코스피 응답: rt_cd={data.get('rt_cd')}, keys={list(data.get('output', {}).keys())[:5]}")
         if data.get('rt_cd') == '0':
             output = data.get('output', {})
-            current = float(output.get('bstp_nmix_prpr', 0))   # 현재값
-            prev    = float(output.get('bstp_nmix_prdy_vrss', 0))  # 전일 대비
-            chg_rt  = float(output.get('bstp_nmix_prdy_ctrt', 0))  # 등락률
-            return {
-                'KOSPI':         round(current, 2),
-                'KOSPI_1d_chg':  round(chg_rt, 2),
-                'KOSPI_source':  'KIS'
-            }
-        else:
-            print(f"[KIS] 코스피 조회 실패: {data.get('msg1', '')}")
-            return None
+            # 필드명 후보 순서대로 시도
+            current = None
+            for key in ['bstp_nmix_prpr', 'stck_prpr', 'prpr']:
+                if output.get(key):
+                    try:
+                        current = float(str(output[key]).replace(',', ''))
+                        break
+                    except Exception:
+                        continue
+            chg_rt = None
+            for key in ['bstp_nmix_prdy_ctrt', 'prdy_ctrt']:
+                if output.get(key):
+                    try:
+                        chg_rt = float(str(output[key]).replace(',', ''))
+                        break
+                    except Exception:
+                        continue
+            if current:
+                return {
+                    'KOSPI':        round(current, 2),
+                    'KOSPI_1d_chg': round(chg_rt, 2) if chg_rt else None,
+                    'KOSPI_source': 'KIS'
+                }
+        print(f"[KIS] 코스피 조회 실패: {data.get('msg1', '')} / 전체응답: {str(data)[:200]}")
+        return None
     except Exception as e:
         print(f"[KIS] 코스피 조회 오류: {e}")
         return None
