@@ -51,18 +51,17 @@ def get_kospi_index(app_key, app_secret, access_token):
         "authorization": f"Bearer {access_token}",
         "appkey": app_key,
         "appsecret": app_secret,
-        "tr_id": "FHKUP03500100",  # 국내업종 현재가
+        "tr_id": "FHPUP02100000",  # 업종 현재가 (단순 조회)
         "content-type": "application/json"
     }
     params = {
         "fid_cond_mrkt_div_code": "U",
-        "fid_input_iscd":         "0001",  # 0001 = 코스피
-        "fid_input_date_1":       ""
+        "fid_input_iscd":         "0001"   # 0001 = 코스피
     }
     try:
         resp = requests.get(url, headers=headers, params=params, timeout=10)
         data = resp.json()
-        print(f"[KIS] 코스피 응답: rt_cd={data.get('rt_cd')}, keys={list(data.get('output', {}).keys())[:5]}")
+        print(f"[KIS] 코스피 전체응답: {str(data)[:300]}")
         if data.get('rt_cd') == '0':
             output = data.get('output', {})
             # 필드명 후보 순서대로 시도
