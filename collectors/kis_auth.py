@@ -56,7 +56,8 @@ def get_kospi_index(app_key, app_secret, access_token):
     }
     params = {
         "fid_cond_mrkt_div_code": "U",
-        "fid_input_iscd": "0001"  # 0001 = 코스피
+        "fid_input_iscd":         "0001",  # 0001 = 코스피
+        "fid_input_date_1":       ""
     }
     try:
         resp = requests.get(url, headers=headers, params=params, timeout=10)
@@ -96,19 +97,15 @@ def get_kospi_index(app_key, app_secret, access_token):
 
 def get_foreign_inst_top5(app_key, app_secret, access_token, investor='foreign'):
     """
-    외국인/기관 순매수 상위 5종목
-    investor: 'foreign' 또는 'inst'
+    외국인 순매수 상위 5종목
+    TR: FHKST01710000
     """
     url = f"{BASE_URL}/uapi/domestic-stock/v1/ranking/foreign-net-buy"
-    tr_map = {
-        'foreign': 'FHPTJ04400000',
-        'inst':    'FHPTJ04400000'
-    }
     headers = {
         "authorization": f"Bearer {access_token}",
         "appkey": app_key,
         "appsecret": app_secret,
-        "tr_id": tr_map[investor],
+        "tr_id": "FHKST01710000",
         "content-type": "application/json"
     }
     params = {
