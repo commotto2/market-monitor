@@ -289,13 +289,28 @@ def get_ratio_indicators():
 # ─────────────────────────────────────────
 # 8. 코스피 신용잔고 비율 (금융투자협회)
 # ─────────────────────────────────────────
-def get_credit_balance():
+def get_credit_balance(app_key=None, app_secret=None, access_token=None):
     """
-    신용잔고: 금투협 API 접근 불안정
-    → KIS API 설정 후 연결 예정, 현재는 N/A 처리
+    삼성전자 + SK하이닉스 신용잔고 (KIS API)
+    시장 전체 신용잔고는 추후 연결 예정
     """
-    print("  [건너뜀] 신용잔고: KIS API 설정 후 연결 예정")
-    return {'credit_balance_bil': None, 'credit_date': None}
+    if not (app_key and app_secret and access_token):
+        print("  [건너뜀] 신용잔고: KIS API 미설정")
+        return {
+            'credit_samsung': None,
+            'credit_hynix': None
+        }
+
+    from collectors.kis_auth import get_credit_balance as kis_credit
+    import time
+
+    result = {}
+    for code, key in [('005930', 'credit_samsung'), ('000660', 'credit_hynix')]:
+        data = kis_credit(app_key, app_secret, access_token, code)
+        result[key] = data
+        time.sleep(0.3)
+
+    return result
 
 
 # ─────────────────────────────────────────
@@ -326,7 +341,11 @@ def collect_all_weekly():
     time.sleep(0.5)
 
     print("  신용잔고 수집 중...")
-    data.update(get_credit_balance())
+    data.update(get_credit_balance(
+        app_key=os.environ.get('KIS_APP_KEY'),
+        app_secret=os.environ.get('KIS_APP_SECRET'),
+        access_token=os.environ.get('KIS_ACCESS_TOKEN')
+    ))
 
     data['collected_at'] = datetime.now().strftime('%Y-%m-%d %H:%M')
     print("[주간 수집 완료]")
