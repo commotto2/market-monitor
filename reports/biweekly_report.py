@@ -52,12 +52,20 @@ def get_claude_interpretation_biweekly(d, signals):
 
     signal_text = "\n".join([f"- {s[0]}: {s[1]} → {s[2]}" for s in signals])
 
+    above_ratio = d.get('above_ma200_ratio')
+    above_count = d.get('above_ma200_count')
+    above_total = d.get('above_ma200_total')
+    mcclellan   = d.get('mcclellan')
+    own_rate    = d.get('foreign_ownership_rate')
+    own_chg     = d.get('foreign_ownership_2m_chg')
+    own_chg_str = f"{own_chg:+.2f}%p" if own_chg is not None else "N/A"
+
     prompt = f"""시장 분석 전문가로서 격주 시장 내부 강도 지표를 해석해주세요.
 
 [수치]
-S&P500 200일선 위 종목 비율: {d.get('above_ma200_ratio')}% ({d.get('above_ma200_count')}/{d.get('above_ma200_total')}종목)
-McClellan Oscillator: {d.get('mcclellan')}
-외국인 코스피 지분율: {d.get('foreign_ownership_rate')}% (2개월 변화: {d.get('foreign_ownership_2m_chg'):+.2f}%p" if d.get('foreign_ownership_2m_chg') else ")")
+S&P500 200일선 위 종목 비율: {above_ratio}% ({above_count}/{above_total}종목)
+McClellan Oscillator: {mcclellan}
+외국인 코스피 지분율: {own_rate}% (2개월 변화: {own_chg_str})
 
 [감지된 신호]
 {signal_text}
