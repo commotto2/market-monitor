@@ -202,7 +202,8 @@ def build_message(d, signals, interpretation):
         lines.append("【코스피 투자자 동향】")
         def fmt_bil(v):
             try:
-                n = int(str(v).replace(',',''))
+                # API 응답은 백만원 단위 → 억원으로 변환 (÷100)
+                n = int(str(v).replace(',','')) // 100
                 return f"{n:+,}억"
             except:
                 return str(v)
