@@ -32,6 +32,34 @@ jobs:
         run: |
           pip install yfinance pandas matplotlib requests numpy koreanize-matplotlib
 
+      - name: Issue KIS Access Token (Weekend)
+        id: kis_token_weekend
+        env:
+          KIS_APP_KEY:    ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: |
+          python - <<'EOF'
+          import requests, os, sys
+          key    = os.environ.get('KIS_APP_KEY', '')
+          secret = os.environ.get('KIS_APP_SECRET', '')
+          if not key or not secret:
+              print("KIS API 미설정")
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("token=
+")
+              sys.exit(0)
+          resp = requests.post(
+              "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
+              json={"grant_type": "client_credentials", "appkey": key, "appsecret": secret},
+              timeout=10
+          )
+          token = resp.json().get('access_token', '')
+          print(f"KIS Token: {'성공' if token else '실패'}")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"token={token}
+")
+          EOF
+
       - name: Run Weekly Report
         env:
           TELEGRAM_TOKEN_MARKET:  ${{ secrets.TELEGRAM_TOKEN_MARKET }}
@@ -40,7 +68,7 @@ jobs:
           FRED_API_KEY:           ${{ secrets.FRED_API_KEY }}
           KIS_APP_KEY:            ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
-          KIS_ACCESS_TOKEN:       ${{ secrets.KIS_ACCESS_TOKEN }}
+          KIS_ACCESS_TOKEN:       ${{ steps.kis_token_weekend.outputs.token }}
         run: python reports/weekly_report.py
 
       - name: Check Biweekly Schedule
