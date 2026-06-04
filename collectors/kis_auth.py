@@ -221,6 +221,60 @@ def get_stock_quote(app_key, app_secret, access_token, stock_code):
         return None
 
 
+def get_credit_balance(app_key, app_secret, access_token, stock_code):
+    """
+    종목별 신용잔고 일별추이 [국내주식-110]
+    TR: FHPST04760000
+    stock_code: '005930' (삼성전자), '000660' (SK하이닉스)
+    """
+    from datetime import datetime
+    today = datetime.now().strftime('%Y%m%d')
+
+    url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance"
+    headers = {
+        "authorization": f"Bearer {access_token}",
+        "appkey": app_key,
+        "appsecret": app_secret,
+        "tr_id": "FHPST04760000",
+        "content-type": "application/json"
+    }
+    params = {
+        "fid_cond_mrkt_div_code": "J",
+        "fid_cond_scr_div_code":  "20476",
+        "fid_input_iscd":         stock_code,
+        "fid_input_date_1":       today
+    }
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        if not resp.text.strip():
+            print(f"[KIS] 신용잔고 {stock_code}: 빈 응답")
+            return None
+        data = resp.json()
+        if data.get('rt_cd') == '0':
+            output = data.get('output', [])
+            if not output:
+                print(f"[KIS] 신용잔고 {stock_code}: 데이터 없음")
+                return None
+            # 가장 최근 데이터 (첫 번째 항목)
+            o = output[0]
+            return {
+                'stock_code':    stock_code,
+                'date':          o.get('deal_date', ''),
+                'price':         o.get('stck_prpr', 'N/A'),
+                'loan_new_amt':  o.get('whol_loan_new_amt', '0'),     # 융자 신규 금액
+                'loan_rdmp_amt': o.get('whol_loan_rdmp_amt', '0'),    # 융자 상환 금액
+                'loan_rmnd_amt': o.get('whol_loan_rmnd_amt', '0'),    # 융자 잔고 금액
+                'loan_rmnd_rate': o.get('whol_loan_rmnd_rate', '0'),  # 융자 잔고 비율
+                'loan_rmnd_stcn': o.get('whol_loan_rmnd_stcn', '0')  # 융자 잔고 주수
+            }
+        else:
+            print(f"[KIS] 신용잔고 {stock_code} 실패: {data.get('msg1','')} / rt_cd={data.get('rt_cd')}")
+            return None
+    except Exception as e:
+        print(f"[KIS] 신용잔고 {stock_code} 오류: {e}")
+        return None
+
+
 if __name__ == '__main__':
     # 테스트
     key    = os.environ.get('KIS_APP_KEY', '')
