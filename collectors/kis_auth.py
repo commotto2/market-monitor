@@ -105,11 +105,11 @@ def get_market_investor_trend(app_key, app_secret, access_token):
     # TR코드 후보: 날짜 지정 가능한 것 우선
     candidates = [
         {
-            # 투자자별 일별 매매동향 (날짜 지정)
+            # FHKST03030100: fid_cond_mrkt_div_code → "U" 로 변경
             "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-trade-volume",
             "tr_id": "FHKST03030100",
             "params": {
-                "fid_cond_mrkt_div_code": "J",
+                "fid_cond_mrkt_div_code": "U",
                 "fid_input_iscd":         "0001",
                 "fid_input_date_1":       today,
                 "fid_input_date_2":       today,
@@ -117,17 +117,18 @@ def get_market_investor_trend(app_key, app_secret, access_token):
             }
         },
         {
-            # 시장 투자자 매매현황 (장중/마감 후)
+            # FHPTJ04400000: fid_cond_scr_div_code 추가
             "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
             "tr_id": "FHPTJ04400000",
             "params": {
                 "fid_cond_mrkt_div_code": "J",
+                "fid_cond_scr_div_code":  "20171",
                 "fid_input_iscd":         "0001",
                 "fid_input_date_1":       today
             }
         },
         {
-            # 기존 TR코드 (장중만 작동)
+            # FHKST01010900: 장중만 작동, 마지막 시도
             "url": f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
             "tr_id": "FHKST01010900",
             "params": {
