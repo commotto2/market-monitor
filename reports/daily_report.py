@@ -196,6 +196,20 @@ def build_message(d, signals, interpretation):
             hyn_price = hyn['price']
         lines.append(f"  SK하이닉스  {hyn_price}원  외국인 {hyn['foreign_net_buy']}주  보유율 {hyn['foreign_rate']}%")
 
+    # 시장 투자자 동향
+    trend = d.get('market_investor_trend')
+    if trend:
+        lines.append("【코스피 투자자 동향】")
+        def fmt_bil(v):
+            try:
+                n = int(str(v).replace(',',''))
+                return f"{n:+,}억"
+            except:
+                return str(v)
+        lines.append(f"  외국인  {fmt_bil(trend.get('foreign_net','N/A'))}")
+        lines.append(f"  기관    {fmt_bil(trend.get('inst_net','N/A'))}")
+        lines.append(f"  개인    {fmt_bil(trend.get('indiv_net','N/A'))}")
+
     # 외국인 TOP5
     if d.get('foreign_buy_top5'):
         lines.append("【외국인 순매수 TOP5】")
