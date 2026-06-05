@@ -252,11 +252,33 @@ def build_message_weekly(d, signals, interpretation):
     # 시장 전체 (상위 30종목 합산)
     mkt_cr = d.get('credit_market')
     if mkt_cr:
-        total      = mkt_cr.get('credit_total_bil', 0)
-        total_jo   = round(total / 10000, 1)
-        total_rate = mkt_cr.get('credit_total_rate', '')
-        rate_str   = f"  잔고율 {total_rate}%" if total_rate else ""
-        lines.append(f"  코스피 상위30 합산  {total_jo}조{rate_str}")
+        total    = mkt_cr.get('credit_total_bil', 0)
+        total_jo = round(total / 10000, 1)
+
+        # 전주 대비 변화율
+        import json, os
+        history_path = 'data/credit_history.json'
+        chg_str = ''
+        try:
+            if os.path.exists(history_path):
+                hist = json.loads(open(history_path).read())
+                prev = hist.get('credit_total_bil')
+                if prev and prev > 0:
+                    chg_pct = round((total - prev) / prev * 100, 2)
+                    arrow   = '▲' if chg_pct > 0 else '▼' if chg_pct < 0 else '─'
+                    chg_str = f" (전주 대비 {arrow}{abs(chg_pct)}%)"
+        except Exception:
+            pass
+
+        # 현재값 저장 (다음 주 비교용)
+        try:
+            os.makedirs('data', exist_ok=True)
+            with open(history_path, 'w') as f:
+                json.dump({'credit_total_bil': total}, f)
+        except Exception:
+            pass
+
+        lines.append(f"  코스피 상위30 합산  {total_jo}조{chg_str}")
     else:
         lines.append(f"  코스피 합산  N/A")
 
