@@ -1,0 +1,64 @@
+name: Test Data Sources
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pandas
+
+      - name: Test CBOE Put/Call Ratio
+        run: |
+          python - <<'PYEOF'
+          import requests
+
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+              'Accept': 'text/html,application/json,*/*'
+          }
+
+          urls = [
+              ('CBOE market stats HTML', 'https://res.cboe.com/us/options/market_statistics'),
+              ('CBOE market stats JSON', 'https://www.cboe.com/us/options/market_statistics/daily/'),
+              ('CBOE daily CSV', 'https://cdn.cboe.com/api/global/us_options_market_statistics/daily-market-statistics.csv'),
+          ]
+
+          for name, url in urls:
+              try:
+                  resp = requests.get(url, headers=headers, timeout=10)
+                  print(f'{name}: {resp.status_code} / {resp.text[:200]}')
+              except Exception as e:
+                  print(f'{name}: 오류 - {e}')
+          PYEOF
+
+      - name: Test Naver Finance Credit Balance
+        run: |
+          python - <<'PYEOF'
+          import requests
+          from bs4 import BeautifulSoup
+
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+              'Referer': 'https://finance.naver.com'
+          }
+
+          urls = [
+              ('네이버 신용거래융자', 'https://finance.naver.com/sise/sise_margin.naver'),
+              ('네이버 신용잔고 코스피', 'https://finance.naver.com/sise/sise_margin_money.naver?sosok=0'),
+          ]
+
+          for name, url in urls:
+              try:
+                  resp = requests.get(url, headers=headers, timeout=10)
+                  print(f'{name}: {resp.status_code} / {resp.text[:300]}')
+              except Exception as e:
+                  print(f'{name}: 오류 - {e}')
+          PYEOF
