@@ -97,7 +97,7 @@ def get_stock_foreign_monthly(app_key=None, app_secret=None, access_token=None):
 # ─────────────────────────────────────────
 # 2. 코스피 vs S&P500 상대 수익률
 # ─────────────────────────────────────────
-def get_relative_performance():
+def get_relative_performance(app_key=None, app_secret=None, access_token=None):
     try:
         kospi_close = _get_close_m('^KS11',  '14mo')
         sp500_close = _get_close_m('^GSPC', '14mo')
@@ -106,6 +106,7 @@ def get_relative_performance():
             raise ValueError("S&P500 데이터 없음")
 
         # 공통 날짜만 사용
+        import pandas as pd
         df = pd.DataFrame({'KOSPI': kospi_close, 'SP500': sp500_close}).dropna()
 
         def calc_ret(series, days):
@@ -189,7 +190,7 @@ def collect_all_monthly(app_key=None, app_secret=None, access_token=None):
     data['monthly_stocks'] = stocks
 
     print("  KOSPI/S&P500 상대 수익률 수집 중...")
-    data.update(get_relative_performance())
+    data.update(get_relative_performance(app_key=app_key, app_secret=app_secret, access_token=access_token))
     time.sleep(0.5)
 
     print("  환율 월간 변동폭 수집 중...")
