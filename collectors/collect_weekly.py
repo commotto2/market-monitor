@@ -305,10 +305,17 @@ def get_credit_balance(app_key=None, app_secret=None, access_token=None):
     import time
 
     result = {}
+
+    # 종목별 신용잔고 (삼성전자, SK하이닉스)
     for code, key in [('005930', 'credit_samsung'), ('000660', 'credit_hynix')]:
         data = kis_credit(app_key, app_secret, access_token, code)
         result[key] = data
         time.sleep(0.3)
+
+    # 시장 전체 신용잔고 (상위 30종목 합산)
+    from collectors.kis_auth import get_market_credit_balance
+    market_credit = get_market_credit_balance(app_key, app_secret, access_token)
+    result['credit_market'] = market_credit
 
     return result
 
