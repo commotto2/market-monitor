@@ -13,30 +13,39 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pandas
+        run: pip install requests pandas beautifulsoup4
 
       - name: Test CBOE Put/Call Ratio
         run: |
           python - <<'PYEOF'
           import requests
+          from bs4 import BeautifulSoup
 
           headers = {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
               'Accept': 'text/html,application/json,*/*'
           }
 
-          urls = [
-              ('CBOE market stats HTML', 'https://res.cboe.com/us/options/market_statistics'),
-              ('CBOE market stats JSON', 'https://www.cboe.com/us/options/market_statistics/daily/'),
-              ('CBOE daily CSV', 'https://cdn.cboe.com/api/global/us_options_market_statistics/daily-market-statistics.csv'),
-          ]
+          # CBOE HTML 파싱 시도
+          url = 'https://res.cboe.com/us/options/market_statistics'
+          try:
+              resp = requests.get(url, headers=headers, timeout=10)
+              print(f'CBOE HTML 상태코드: {resp.status_code}')
+              soup = BeautifulSoup(resp.text, 'html.parser')
 
-          for name, url in urls:
-              try:
-                  resp = requests.get(url, headers=headers, timeout=10)
-                  print(f'{name}: {resp.status_code} / {resp.text[:200]}')
-              except Exception as e:
-                  print(f'{name}: 오류 - {e}')
+              # 테이블에서 P/C Ratio 찾기
+              tables = soup.find_all('table')
+              print(f'테이블 수: {len(tables)}')
+              for i, t in enumerate(tables[:3]):
+                  print(f'테이블 {i}: {t.text[:200]}')
+
+              # 텍스트에서 Put/Call 숫자 찾기
+              text = soup.get_text()
+              lines = [l.strip() for l in text.split('\n') if 'put' in l.lower() or 'call' in l.lower() or 'ratio' in l.lower()]
+              print(f'관련 텍스트: {lines[:10]}')
+
+          except Exception as e:
+              print(f'CBOE 파싱 오류: {e}')
           PYEOF
 
       - name: Test Naver Finance Credit Balance
@@ -58,7 +67,14 @@ jobs:
           for name, url in urls:
               try:
                   resp = requests.get(url, headers=headers, timeout=10)
-                  print(f'{name}: {resp.status_code} / {resp.text[:300]}')
+                  print(f'\n{name}: {resp.status_code}')
+                  if resp.status_code == 200:
+                      soup = BeautifulSoup(resp.text, 'html.parser')
+                      # 숫자 데이터가 있는 테이블 찾기
+                      tables = soup.find_all('table')
+                      print(f'  테이블 수: {len(tables)}')
+                      for t in tables[:2]:
+                          print(f'  테이블 내용: {t.get_text()[:300]}')
               except Exception as e:
                   print(f'{name}: 오류 - {e}')
           PYEOF
