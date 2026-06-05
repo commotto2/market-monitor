@@ -311,24 +311,29 @@ def get_market_credit_balance(app_key, app_secret, access_token):
 
             # 상위 30종목 융자잔고 합산
             total_loan = 0
+            total_rate = 0.0
             top_stocks = []
             for item in output2:
                 try:
-                    amt = int(str(item.get('whol_loan_rmnd_amt', '0')).replace(',', ''))
+                    amt  = int(str(item.get('whol_loan_rmnd_amt', '0')).replace(',', ''))
+                    rate = float(str(item.get('whol_loan_rmnd_rate', '0')).replace(',', ''))
                     total_loan += amt
+                    total_rate += rate
                     if len(top_stocks) < 5:
                         top_stocks.append({
                             'name': item.get('hts_kor_isnm', ''),
-                            'amt_bil': amt // 10000  # 만원 → 억원
+                            'amt_bil': amt // 10000
                         })
                 except Exception:
                     pass
 
-            total_bil = total_loan // 10000  # 만원 → 억원
-            print(f"[KIS] 신용잔고 상위30 합산: {total_bil:,}억원")
+            total_bil  = total_loan // 10000        # 만원 → 억원
+            total_rate = round(total_rate, 2)        # 잔고율 합산
+            print(f"[KIS] 신용잔고 상위30 합산: {total_bil:,}억원 / 잔고율합산: {total_rate}%")
             return {
-                'credit_total_bil':  total_bil,
-                'credit_top5':       top_stocks,
+                'credit_total_bil':   total_bil,
+                'credit_total_rate':  total_rate,
+                'credit_top5':        top_stocks,
                 'credit_stock_count': len(output2)
             }
         else:
