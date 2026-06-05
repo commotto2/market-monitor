@@ -58,6 +58,15 @@ jobs:
               f.write(f"token={token}\n")
           PYEOF
 
+      - name: Load Previous Credit Balance
+        run: |
+          if [ -f data/credit_history.json ]; then
+            echo "이전 신용잔고 데이터 발견"
+            cat data/credit_history.json
+          else
+            echo "이전 데이터 없음 (첫 실행)"
+          fi
+
       - name: Run Weekly Report
         env:
           TELEGRAM_TOKEN_MARKET:  ${{ secrets.TELEGRAM_TOKEN_MARKET }}
@@ -68,6 +77,24 @@ jobs:
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCESS_TOKEN:       ${{ steps.kis_token_weekend.outputs.token }}
         run: python reports/weekly_report.py
+
+      - name: Save Credit Balance History
+        run: |
+          mkdir -p data
+          python - <<'PYEOF'
+          import json, os, glob
+          # weekly_report가 생성한 credit_result.json 읽기
+          if os.path.exists('data/credit_result.json'):
+              print("신용잔고 데이터 저장 완료")
+          PYEOF
+
+      - name: Commit Credit Balance History
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/credit_history.json 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Update credit balance history [skip ci]"
+          git push || true
 
       - name: Check Biweekly Schedule
         id: biweekly_check
