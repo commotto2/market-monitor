@@ -275,6 +275,70 @@ def get_credit_balance(app_key, app_secret, access_token, stock_code):
         return None
 
 
+def get_market_credit_balance(app_key, app_secret, access_token):
+    """
+    코스피 신용잔고 상위 30종목 합산 [국내주식-109]
+    TR: FHKST17010000
+    상위 30종목 합산 = 코스피 전체 신용잔고의 약 70~80% 커버
+    단위: 만원 → 억원으로 변환해서 반환
+    """
+    url = f"{BASE_URL}/uapi/domestic-stock/v1/ranking/credit-balance"
+    headers = {
+        "authorization": f"Bearer {access_token}",
+        "appkey":    app_key,
+        "appsecret": app_secret,
+        "tr_id":     "FHKST17010000",
+        "content-type": "application/json"
+    }
+    params = {
+        "FID_COND_SCR_DIV_CODE":  "11701",
+        "FID_INPUT_ISCD":         "0001",   # 코스피
+        "FID_OPTION":             "2",      # 2일 기준
+        "FID_COND_MRKT_DIV_CODE": "J",
+        "FID_RANK_SORT_CLS_CODE": "2"       # 잔고금액 상위
+    }
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        if not resp.text.strip():
+            print("[KIS] 신용잔고 상위: 빈 응답")
+            return None
+        data = resp.json()
+        if data.get('rt_cd') == '0':
+            output2 = data.get('output2', [])
+            if not output2:
+                print("[KIS] 신용잔고 상위: output2 없음")
+                return None
+
+            # 상위 30종목 융자잔고 합산
+            total_loan = 0
+            top_stocks = []
+            for item in output2:
+                try:
+                    amt = int(str(item.get('whol_loan_rmnd_amt', '0')).replace(',', ''))
+                    total_loan += amt
+                    if len(top_stocks) < 5:
+                        top_stocks.append({
+                            'name': item.get('hts_kor_isnm', ''),
+                            'amt_bil': amt // 10000  # 만원 → 억원
+                        })
+                except Exception:
+                    pass
+
+            total_bil = total_loan // 10000  # 만원 → 억원
+            print(f"[KIS] 신용잔고 상위30 합산: {total_bil:,}억원")
+            return {
+                'credit_total_bil':  total_bil,
+                'credit_top5':       top_stocks,
+                'credit_stock_count': len(output2)
+            }
+        else:
+            print(f"[KIS] 신용잔고 상위 실패: {data.get('msg1','')} / rt_cd={data.get('rt_cd')}")
+            return None
+    except Exception as e:
+        print(f"[KIS] 신용잔고 상위 오류: {e}")
+        return None
+
+
 if __name__ == '__main__':
     # 테스트
     key    = os.environ.get('KIS_APP_KEY', '')
