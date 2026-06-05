@@ -328,11 +328,10 @@ def get_market_credit_balance(app_key, app_secret, access_token):
                     pass
 
             total_bil  = total_loan // 10000        # 만원 → 억원
-            total_rate = round(total_rate, 2)        # 잔고율 합산
-            print(f"[KIS] 신용잔고 상위30 합산: {total_bil:,}억원 / 잔고율합산: {total_rate}%")
+            print(f"[KIS] 신용잔고 상위30 합산: {total_bil:,}억원")
+
             return {
                 'credit_total_bil':   total_bil,
-                'credit_total_rate':  total_rate,
                 'credit_top5':        top_stocks,
                 'credit_stock_count': len(output2)
             }
@@ -342,6 +341,67 @@ def get_market_credit_balance(app_key, app_secret, access_token):
     except Exception as e:
         print(f"[KIS] 신용잔고 상위 오류: {e}")
         return None
+
+
+def get_kospi_history(app_key, app_secret, access_token, months=14):
+    """
+    KOSPI 지수 일별 데이터 수집 (FHPTJ04040000)
+    월간 수익률 계산용 과거 데이터
+    """
+    from datetime import datetime, timedelta
+    import time
+
+    end_date   = datetime.now()
+    start_date = end_date - timedelta(days=months * 31)
+
+    all_data = []
+    # API는 한 번 호출에 최대 30건 → 여러 번 호출
+    current_end = end_date
+    for _ in range(months):
+        current_start = current_end - timedelta(days=30)
+        url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market"
+        headers = {
+            "authorization": f"Bearer {access_token}",
+            "appkey":    app_key,
+            "appsecret": app_secret,
+            "tr_id":     "FHPTJ04040000",
+            "content-type": "application/json"
+        }
+        params = {
+            "FID_COND_MRKT_DIV_CODE": "U",
+            "FID_INPUT_ISCD":         "0001",
+            "FID_INPUT_DATE_1":       current_start.strftime('%Y%m%d'),
+            "FID_INPUT_ISCD_1":       "KSP",
+            "FID_INPUT_DATE_2":       current_end.strftime('%Y%m%d'),
+            "FID_INPUT_ISCD_2":       "0001"
+        }
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=10)
+            data = resp.json()
+            if data.get('rt_cd') == '0':
+                output = data.get('output', [])
+                for item in output:
+                    dt  = item.get('stck_bsop_date', '')
+                    val = item.get('bstp_nmix_prpr', '')
+                    if dt and val:
+                        try:
+                            all_data.append((dt, float(val)))
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"[KIS] KOSPI 이력 오류: {e}")
+
+        current_end = current_start - timedelta(days=1)
+        if current_end < start_date:
+            break
+        time.sleep(0.2)
+
+    if not all_data:
+        return None
+
+    # 날짜순 정렬
+    all_data.sort(key=lambda x: x[0])
+    return all_data
 
 
 if __name__ == '__main__':
