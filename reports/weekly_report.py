@@ -252,9 +252,11 @@ def build_message_weekly(d, signals, interpretation):
     # 시장 전체 (상위 30종목 합산)
     mkt_cr = d.get('credit_market')
     if mkt_cr:
-        total = mkt_cr.get('credit_total_bil', 0)
-        count = mkt_cr.get('credit_stock_count', 0)
-        lines.append(f"  코스피 상위{count}종목 합산  {total:,}억")
+        total      = mkt_cr.get('credit_total_bil', 0)
+        total_jo   = round(total / 10000, 1)
+        total_rate = mkt_cr.get('credit_total_rate', '')
+        rate_str   = f"  잔고율 {total_rate}%" if total_rate else ""
+        lines.append(f"  코스피 상위30 합산  {total_jo}조{rate_str}")
     else:
         lines.append(f"  코스피 합산  N/A")
 
@@ -264,8 +266,10 @@ def build_message_weekly(d, signals, interpretation):
     for label, cr in [('삼성전자', sam_cr), ('SK하이닉스', hyn_cr)]:
         if cr:
             try:
-                amt  = int(str(cr['loan_rmnd_amt']).replace(',','')) // 100000
-                rate = cr['loan_rmnd_rate']
+                # 필드명: whol_loan_rmnd_amt (만원), whol_loan_rmnd_rate (%)
+                raw_amt  = str(cr.get('whol_loan_rmnd_amt', cr.get('loan_rmnd_amt', '0')))
+                amt      = int(raw_amt.replace(',','')) // 100000  # 만원 → 억
+                rate     = cr.get('whol_loan_rmnd_rate', cr.get('loan_rmnd_rate', 'N/A'))
                 lines.append(f"  {label}  {amt:,}억  잔고율 {rate}%")
             except Exception:
                 lines.append(f"  {label}  데이터 오류")
