@@ -39,33 +39,43 @@ jobs:
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: |
           python - <<'PYEOF'
-          import requests, os, sys
+          import requests, os, sys, time
+
           key    = os.environ.get('KIS_APP_KEY', '')
           secret = os.environ.get('KIS_APP_SECRET', '')
+
           if not key or not secret:
-              print("KIS API 미설정")
+              print("KIS API 미설정 → 건너뜀")
               with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
                   f.write("token=\n")
               sys.exit(0)
-          resp = requests.post(
-              "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
-              json={"grant_type": "client_credentials", "appkey": key, "appsecret": secret},
-              timeout=10
-          )
-          token = resp.json().get('access_token', '')
-          print(f"KIS Token: {'성공' if token else '실패'}")
+
+          token = ''
+          for attempt in range(1, 4):
+              try:
+                  resp = requests.post(
+                      "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
+                      json={"grant_type": "client_credentials", "appkey": key, "appsecret": secret},
+                      timeout=15
+                  )
+                  token = resp.json().get('access_token', '')
+                  if token:
+                      print(f"KIS Token 발급 성공 (시도 {attempt}/3)")
+                      break
+                  else:
+                      print(f"KIS Token 발급 실패 (시도 {attempt}/3): {resp.text[:200]}")
+              except Exception as e:
+                  print(f"KIS Token 발급 오류 (시도 {attempt}/3): {e}")
+
+              if attempt < 3:
+                  time.sleep(5)
+
+          if not token:
+              print("KIS Token 발급 최종 실패 → KIS 데이터 없이 진행")
+
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"token={token}\n")
           PYEOF
-
-      - name: Load Previous Credit Balance
-        run: |
-          if [ -f data/credit_history.json ]; then
-            echo "이전 신용잔고 데이터 발견"
-            cat data/credit_history.json
-          else
-            echo "이전 데이터 없음 (첫 실행)"
-          fi
 
       - name: Run Weekly Report
         env:
@@ -77,16 +87,6 @@ jobs:
           KIS_APP_SECRET:         ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCESS_TOKEN:       ${{ steps.kis_token_weekend.outputs.token }}
         run: python reports/weekly_report.py
-
-      - name: Save Credit Balance History
-        run: |
-          mkdir -p data
-          python - <<'PYEOF'
-          import json, os, glob
-          # weekly_report가 생성한 credit_result.json 읽기
-          if os.path.exists('data/credit_result.json'):
-              print("신용잔고 데이터 저장 완료")
-          PYEOF
 
       - name: Commit Credit Balance History
         run: |
